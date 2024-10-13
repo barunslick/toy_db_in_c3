@@ -26,10 +26,6 @@ fn Pager* open_pager(String file_name) {
 	pager.file_length = (uint)file_size;
 	pager.file_descriptor = libc::fileno(file.file);
 
-	io::printn("File INDEXXXXXXXXXX HEREEEEEEEEEEEEEEEEE:");
-	io::printn(libc::ftell(file.file));
-
-
 	for (uint i = 0; i < MAX_PAGES_PER_PAGER; i++) {
 		pager.pages[i] = null;
 	}

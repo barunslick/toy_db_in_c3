@@ -53,6 +53,9 @@ fn MetaCommandResult run_meta_command(String input, Table* t_table) {
 
 fn ExecuteResult execute_select(Table* t_table) {
 	Row row;
+
+	if (t_table.num_rows == 0 ) io::printn("Table is empty");
+
 	for (uint i = 0; i < t_table.num_rows; i++) {
 		row::deserialize_row(table::get_row_slot(t_table, i), &row);
 		row::print_row(&row);
