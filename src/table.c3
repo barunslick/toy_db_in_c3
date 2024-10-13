@@ -31,8 +31,8 @@ fn void close_db_connection(Table* t_table) {
 
 	defer pager::free_pages(t_pager);
 	defer (void)t_table.pager.file.close();
-	defer free(t_pager);
-	defer free(t_table);
+	//defer free(t_pager);
+	//defer free(t_table);
 	
 	uint num_full_pages = t_table.num_rows / ROWS_PER_PAGE;
 
