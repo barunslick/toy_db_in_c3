@@ -1,42 +1,65 @@
 module table;
 
-import row;
+import std::io;
 
-const uint PAGE_SIZE = 4096;
-const TABLE_MAX_PAGES = 100;
+import row;
+import pager;
+
+const uint PAGE_SIZE = pager::PAGE_SIZE;
+const TABLE_MAX_PAGES = pager::MAX_PAGES_PER_PAGER;
 
 const uint ROWS_PER_PAGE = PAGE_SIZE / row::ROW_SIZE;
 const uint TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 
 struct Table {
 	uint num_rows;
-	void*[TABLE_MAX_PAGES] pages;
+	Pager* pager;
 }
 
-fn Table* get_new_table(){
-	Table* table = malloc(Table.sizeof);
-	table.num_rows = 0;
+fn Table* open_db_connection(String file_name){
+	Pager* pager = pager::open_pager(file_name);
+	Table* t_table = malloc(Table.sizeof);
+	t_table.pager = pager;
+	t_table.num_rows = pager.file_length / row::ROW_SIZE;
 
+	return t_table;
+}
 
-	for (uint i = 0; i < TABLE_MAX_PAGES; i++) {
-		table.pages[i] = null;
+fn void close_db_connection(Table* t_table) {
+
+	Pager* t_pager = t_table.pager;
+
+	defer pager::free_pages(t_pager);
+	defer (void)t_table.pager.file.close();
+	defer free(t_pager);
+	defer free(t_table);
+	
+	uint num_full_pages = t_table.num_rows / ROWS_PER_PAGE;
+
+	for(uint i = 0; i < num_full_pages; i++){
+		if(t_pager.pages[i] == null) continue;
+
+		pager::pager_flush(t_pager, i);
+		free(t_pager.pages[i]);
+		t_pager.pages[i] = null;
 	}
-	return table;
-}
 
-fn void free_table(Table* table){
-	for (int i = 0; table.pages[i]; i++) {
-		free(table.pages[i]);
+	// Handle partial rows if any
+	uint partial_rows = t_table.num_rows % ROWS_PER_PAGE;
+
+	if (partial_rows > 0 && t_pager.pages[num_full_pages] != null) {
+		pager::pager_flush(t_pager, num_full_pages, partial_rows * row::ROW_SIZE);
+		free(t_pager.pages[num_full_pages]);
+		t_pager.pages[num_full_pages] = null;
 	}
-	free(table);
+
 }
 
-fn void* get_row_slot(Table* table, uint row_num) {
+fn void* get_row_slot(Table* t_table, uint row_num) {
 	uint page_num = row_num / ROWS_PER_PAGE;
-	void* page = table.pages[page_num];
-	if (page == null){
-		page = table.pages[page_num] = malloc(PAGE_SIZE);
-	}
+
+	void* page = pager::get_page(t_table.pager, page_num);
+
 	uint row_offset = row_num % ROWS_PER_PAGE;
 	uint byte_offset = row_offset * row::ROW_SIZE;
 
