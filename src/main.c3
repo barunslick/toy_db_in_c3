@@ -4,6 +4,7 @@ import std::io;
 import libc;
 
 import row;
+import cursor;
 import table;
 
 
@@ -53,12 +54,15 @@ fn MetaCommandResult run_meta_command(String input, Table* t_table) {
 
 fn ExecuteResult execute_select(Table* t_table) {
 	Row row;
+	Cursor* c_cursor = cursor::get_table_start_cursor(t_table);
+	defer free(c_cursor);
 
 	if (t_table.num_rows == 0 ) io::printn("Table is empty");
 
-	for (uint i = 0; i < t_table.num_rows; i++) {
-		row::deserialize_row(table::get_row_slot(t_table, i), &row);
+	while(!(c_cursor.end_of_table)){
+		row::deserialize_row(table::get_cursor_address_value(c_cursor), &row);
 		row::print_row(&row);
+		cursor::advance_cursor(c_cursor);
 	}
 
 	return EXECUTE_SUCCESS;
@@ -66,6 +70,9 @@ fn ExecuteResult execute_select(Table* t_table) {
 }
 
 fn ExecuteResult execute_insert(Statement* statement, Table* t_table){
+	Cursor* c_cursor = cursor::get_table_end_cursor(t_table);
+	defer free(c_cursor);
+	
 
 	String[] args = statement.args.split(" ");
 
@@ -87,7 +94,7 @@ fn ExecuteResult execute_insert(Statement* statement, Table* t_table){
 		libc::strcpy((ZString) &new_row.email, (ZString) args[2].zstr_tcopy());
 	};
 
-	void* slot = table::get_row_slot(t_table, t_table.num_rows);
+	void* slot = table::get_cursor_address_value(c_cursor);
 	if (slot == null) {
 	    io::printn("Failed to get row slot.");
 	    free(new_row);

@@ -4,6 +4,7 @@ import std::io;
 
 import row;
 import pager;
+import cursor;
 
 const uint PAGE_SIZE = pager::PAGE_SIZE;
 const TABLE_MAX_PAGES = pager::MAX_PAGES_PER_PAGER;
@@ -26,7 +27,6 @@ fn Table* open_db_connection(String file_name){
 }
 
 fn void close_db_connection(Table* t_table) {
-
 	Pager* t_pager = t_table.pager;
 
 	defer pager::free_pages(t_pager);
@@ -55,12 +55,12 @@ fn void close_db_connection(Table* t_table) {
 
 }
 
-fn void* get_row_slot(Table* t_table, uint row_num) {
-	uint page_num = row_num / ROWS_PER_PAGE;
+fn void* get_cursor_address_value(Cursor* c_cursor) {
+	uint page_num = c_cursor.row_num / ROWS_PER_PAGE;
 
-	void* page = pager::get_page(t_table.pager, page_num);
+	void* page = pager::get_page(c_cursor.table.pager, page_num);
 
-	uint row_offset = row_num % ROWS_PER_PAGE;
+	uint row_offset = c_cursor.row_num % ROWS_PER_PAGE;
 	uint byte_offset = row_offset * row::ROW_SIZE;
 
 	return page + byte_offset;
