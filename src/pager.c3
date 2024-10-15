@@ -8,15 +8,15 @@ const uint PAGE_SIZE = 4096;
 const MAX_PAGES_PER_PAGER = 100;
 
 struct Pager {
-	File file;
+	File file; // Might delete this...
 	int file_descriptor;
 	uint file_length;
+	uint num_of_pages;
 	void*[MAX_PAGES_PER_PAGER] pages;
 }
 
 
 fn Pager* open_pager(String file_name) {
-
 	File file = file::open(file_name, "r+")!!;
 
 	usz file_size = file::get_size(file_name)!!;
@@ -25,6 +25,13 @@ fn Pager* open_pager(String file_name) {
 	pager.file = file;
 	pager.file_length = (uint)file_size;
 	pager.file_descriptor = libc::fileno(file.file);
+	
+	if (pager.file_length % PAGE_SIZE != 0) {
+		io::eprintn("Corrupt db file");
+		libc::exit(1);
+	}
+
+	pager.num_of_pages = pager.file_length / PAGE_SIZE;
 
 	for (uint i = 0; i < MAX_PAGES_PER_PAGER; i++) {
 		pager.pages[i] = null;
@@ -62,6 +69,8 @@ fn void* get_page(Pager* pager, int page_num) {
 		}
 
 		pager.pages[page_num] = page;
+
+		if (page_num >= pager.num_of_pages) pager.num_of_pages = page_num + 1;
 	}
 
 	return pager.pages[page_num];

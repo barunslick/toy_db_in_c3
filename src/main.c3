@@ -5,7 +5,9 @@ import libc;
 
 import row;
 import cursor;
+import pager;
 import table;
+import btree;
 
 
 enum StatementType {
@@ -57,10 +59,8 @@ fn ExecuteResult execute_select(Table* t_table) {
 	Cursor* c_cursor = cursor::get_table_start_cursor(t_table);
 	defer free(c_cursor);
 
-	if (t_table.num_rows == 0 ) io::printn("Table is empty");
-
 	while(!(c_cursor.end_of_table)){
-		row::deserialize_row(table::get_cursor_address_value(c_cursor), &row);
+		row::deserialize_row(cursor::get_cursor_address_value(c_cursor), &row);
 		row::print_row(&row);
 		cursor::advance_cursor(c_cursor);
 	}
@@ -87,6 +87,12 @@ fn ExecuteResult execute_insert(Statement* statement, Table* t_table){
 	    return EXECUTE_FAIL;
 	}
 
+	void* node = pager::get_page(t_table.pager, t_table.root_page_num);
+	if ((*btree::get_num_of_cells_in_node(node) >= btree::MAX_CELLS_PER_NODE)) {
+	     io::printn("Table FULLLL!!!");
+	     return EXECUTE_FAIL;
+	}
+
 	new_row.id = libc::atoi(args[0]);
 
 	@pool() {
@@ -94,16 +100,14 @@ fn ExecuteResult execute_insert(Statement* statement, Table* t_table){
 		libc::strcpy((ZString) &new_row.email, (ZString) args[2].zstr_tcopy());
 	};
 
-	void* slot = table::get_cursor_address_value(c_cursor);
+	void* slot = cursor::get_cursor_address_value(c_cursor);
 	if (slot == null) {
 	    io::printn("Failed to get row slot.");
 	    free(new_row);
 	    return EXECUTE_FAIL;
 	}
 
-	row::serialize_row(new_row, slot);
-
-	t_table.num_rows = t_table.num_rows + 1;
+	cursor::insert_in_leaf_node(c_cursor, new_row.id, new_row);
 
 	return EXECUTE_SUCCESS;
 		
@@ -138,26 +142,29 @@ fn PrepareResult prepare_statement(String input, Statement* statement) {
 
 fn int main(String[] args)
 {
-	Table* t_table = table::open_db_connection("test.db");	
-	for(;;) {
-	  @pool() {
-	    print_prompt();
-	    String line = io::treadline()!!;
-	    if(line[0] == '.') {
-		switch(run_meta_command(line, t_table)) {
-			case COMMAND_SUCCESS: continue;
-			case COMMAND_NOT_FOUND: continue;
-			default: continue;
-		}
-	    }
+	btree::print_constants();
+	//Table* t_table = table::open_db_connection("test.db");	
+	//for(;;) {
+	//  @pool() {
+	//    print_prompt();
+	//    String line = io::treadline()!!;
+	//    if(line[0] == '.') {
+	//	switch(run_meta_command(line, t_table)) {
+	//		case COMMAND_SUCCESS: continue;
+	//		case COMMAND_NOT_FOUND: continue;
+	//		default: continue;
+	//	}
+	//    }
 
-	    Statement* statement = malloc(Statement.sizeof);
-	    statement.type = STATEMENT_UNKNOWN;
-	    prepare_statement(line, statement);
+	//    Statement* statement = malloc(Statement.sizeof);
+	//    statement.type = STATEMENT_UNKNOWN;
+	//    prepare_statement(line, statement);
 
-	    run_statement(statement, t_table);
-	    
-	    io::printn(statement.type);
-	  };
-	}
+	//    run_statement(statement, t_table);
+	//    
+	//    io::printn(statement.type);
+	//  };
+	//}
+
+	return 1;
 }
